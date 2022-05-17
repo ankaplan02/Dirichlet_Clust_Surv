@@ -20,7 +20,7 @@ Couple of items need to be specified before its use:
 
 (8) dp.alp: the concentration parameter (alpha) value, we set ours to be 3/log(G)
 
-(9) Dist_Mat: an AR(1) distance matrix with dimension T by T, with T being the max number of observations a subject can have (e.g., T=8)
+(9) Dist_Mat: a distance matrix with dimension T by T, with T being the max number of observations a subject can have (e.g., T=8); entries we used were (t_i - t_j)^2 for the exponential covariance matrix 
 
 (10) D2: identity matrix of size T
 
