@@ -1,0 +1,38 @@
+data{
+dimY <- dim(y2) # y2 is a matrix with # of rows = subject count, # of columns = number of time points count
+N <- dimY[1] # number of observations/subjects (wide format) 
+J <- dimY[2] # number of time points
+dimX <- dim(X) # dimension of fixed effects matrix
+p_x <- dimX[2] # number of fixed effects to include 
+}
+
+model
+{   
+for(i in 1:N){ # for each person
+  for(j in 1:J){ # at each time point
+
+# survival model using binary outcome with time as a predictor
+y2[i,j] ~ dbern(p[i,j]) # indicator of dropout follows bernoulli with probability p[i,j]
+p[i,j] <- ilogit(inprod(X[i,],beta[]) + gamma[clusts[i],j]) # logistic regression with fixed effects (beta)
+# and clusts needs to be supplied by the user
+# clusts is from the post-processed clusters estimated via the longitudinal clustering algorithm
+# there is a gamma_k (k = cluster number) for each time point j
+  }
+}
+
+# normal priors on fixed effects with tiny precision
+for(k in 1:p_x){
+beta[k] ~ dnorm(0, 0.01)
+}
+
+#J is time point
+for(j in 1:J){
+# for cluster assignment effects 
+for(k in num_clust){ # num clust needs to be provided in the data argument
+# num clust is a vector with the numerical names of the cluster (for instance 1, 2, 3,..., 10)
+ gamma[k,j] ~ dnorm(0, tau_gam[j]) # tau_gam[j] provides an estimate for how variable hte drop out effects are for that time point j 
+    }
+tau_gam[j] <- 1/sig_gam[j] # precision
+sig_gam[j] ~ dunif(0.1, 50) # on the variance scale
+  }
+}
