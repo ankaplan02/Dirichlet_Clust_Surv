@@ -1,0 +1,75 @@
+data{
+dimX <- dim(X) # fixed effects on patients, in long format (multiple rows per patient)
+dimY <- dim(y) # has to be a matrix
+N <- dimY[1] # number of observations (should be number of total observations)
+p_x <- dimX[2] # number of fixed covariates (average trajectories) (these are user specified)
+Q <- dimY[2] # number of outcomes (one column per longitudinal outcome)
+}
+
+model
+{   
+for(i in 1:G){ # G has to be provided from the function call, G = # of unique subjects
+for(j in 1:Q){ # Q each longitudinal outcome will be fitted
+y[n_s[i]:n_i[i],j] ~ dmnorm.vcov(mu[n_s[i]:n_i[i],j], C_v[1:n_a[i],1:n_a[i],j]) # gotta make this a multivariate normal with GP covariance
+mu[n_s[i]:n_i[i],j] <- X[n_s[i]:n_i[i],1:p_x] %*% (beta[j,1:p_x]) + X[n_s[i]:n_i[i],1:p_x] %*% (theta_ind[i,1:p_x,j]) 
+# fixed effect beta: a set of p_x trajectory effects; overall average trajectory for each outcome
+# random effect theta_ind: a set of p_x trajectory effects for each outcome for each subject
+# n_s[i] to n_i[i] are the indices of measurements for the ith subject's longitudinal measure
+# n_a[i] is the ith subject's total number of observed longitudinal marker
+# we assume that all longitudinal measures are measured on the same grid and same time-points
+  }
+}
+
+# assigning the latent trajectory effects for each outcome per subject
+# for loop is on each subject
+for(q in 1:G){
+theta_ind[q,1:p_x,1:Q] <- theta_ind_dp[1:p_x,ind.dp_r[q],1:Q] # the assignment of the latent theta_ind_dp to qth subject
+# The support points of the random G from DP 
+ind.dp_r[q] ~ dcat(p.dp[1:Mtrunc]) # the label for each subject, which latent group are they assigned to? ind.dp_r
+# The latent indicator of DP    
+}
+
+for(j in 1:Q){ # for each outcome
+for (m in 1:Mtrunc){# The support points; there are Mtrunc many latent trajectories possible 
+theta_ind_dp[1:p_x,m,j] ~  dmnorm(DP.mean[1:p_x,j], DP.Var[1:p_x,1:p_x,j]) # prior distribution for latent trajectories 
+  }
+}
+
+# DP Stick break representation for latent mixture
+q.dp[1] ~ dbeta(1, dp.alp)
+p.dp[1] <- q.dp[1]
+r.dp[1] <- 1 - q.dp[1]
+for (j in 2:(Mtrunc-1)){
+   q.dp[j] ~ dbeta(1, dp.alp)
+   p.dp[j] <- q.dp[j] * r.dp[j-1]
+   r.dp[j] <- (1 - q.dp[j]) * r.dp[j-1]
+}
+p.dp[Mtrunc] <- r.dp[Mtrunc-1]
+# dp.alp ~ dgamma(shape_M, scale_M)T(0.8, 3) # could assign a prior distribution to the DP concentration parameter but provided issues
+
+# covariance matrix for errors on each outcome
+for(j in 1:Q){ # for each outcome
+  for(t in 1:T){ # for each time point, T being the max number of observed longitudinal outcomes (e.g., 8 therapy sessions denotes completing therapy)
+    for(q in 1:T){ 
+  C_v[t,q,j] <- v_1[j] * exp(-(v_2[j] * Dist_Mat[t,q])) + v_1[j] * D2[t,q] # exponential covariance matrix explained in Dunson and Herring 2006 
+  }
+}
+  v_1[j] ~ dlnorm(-5.3, 1/25) # prior variance terms for exponential covariance
+  v_2[j] ~ dlnorm(0, 1/25)
+}
+
+# prior precision for DP atom
+for(j in 1:Q){
+for(u in 1:p_x){
+DP.Var[u, u,j] <- tau[u,j] # diagonal terms for variance, follow gamma
+tau[u,j] ~ dgamma(0.1, 0.1) # fix diagonals (only nonzero components)
+for(k in indics[u,]){ # off diagonals assumed to be zero
+DP.Var[u,k,j] <- 0
+    }
+  }
+  for(k in 1:p_x){
+    beta[j,k] ~ dnorm(0, 0.001) # fixed effects have a centered normal prior, non informative
+    } 
+  }
+
+}
