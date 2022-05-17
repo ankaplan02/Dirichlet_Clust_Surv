@@ -13,8 +13,6 @@ Couple of items need to be specified before its use:
 (4) n_s: the index number for each subject's first observation in the array y
 
 (5) n_i: the index number for each subject's final observation in the array y 
-
-    - (first and last time point observed)
     
 (6) n_a: each subject's total number of observations in the array y
 
